@@ -7,6 +7,8 @@ pub trait LanguageParser: Send + Sync {
     fn parse(&self, path: &Path, content: &str) -> Result<FileTags>;
 }
 
+pub mod c;
+pub mod cpp;
 pub mod go;
 pub mod javascript;
 pub mod python;
@@ -34,6 +36,14 @@ pub fn parse_file(path: &Path, content: &str) -> Result<Option<FileTags>> {
         }
         "go" => {
             let parser = go::GoParser::new()?;
+            Ok(Some(parser.parse(path, content)?))
+        }
+        "c" | "h" => {
+            let parser = c::CParser::new()?;
+            Ok(Some(parser.parse(path, content)?))
+        }
+        "cpp" | "cc" | "cxx" | "hpp" | "hh" | "hxx" => {
+            let parser = cpp::CppParser::new()?;
             Ok(Some(parser.parse(path, content)?))
         }
         _ => Ok(None),
@@ -86,6 +96,31 @@ mod tests {
         let go_tags = go_res.unwrap();
         assert_eq!(go_tags.definitions.len(), 1);
         assert_eq!(go_tags.definitions[0].name, "main");
+
+        let c_res = parse_file(Path::new("src/main.c"), "int main(void) { return 0; }").unwrap();
+        assert!(c_res.is_some());
+        let c_tags = c_res.unwrap();
+        assert_eq!(c_tags.definitions.len(), 1);
+        assert_eq!(c_tags.definitions[0].name, "main");
+
+        let h_res =
+            parse_file(Path::new("src/types.h"), "struct Point { int x; int y; };").unwrap();
+        assert!(h_res.is_some());
+        let h_tags = h_res.unwrap();
+        assert_eq!(h_tags.definitions.len(), 1);
+        assert_eq!(h_tags.definitions[0].name, "Point");
+
+        let cpp_res = parse_file(Path::new("src/app.cpp"), "class App {};").unwrap();
+        assert!(cpp_res.is_some());
+        let cpp_tags = cpp_res.unwrap();
+        assert_eq!(cpp_tags.definitions.len(), 1);
+        assert_eq!(cpp_tags.definitions[0].name, "App");
+
+        let hpp_res = parse_file(Path::new("src/app.hpp"), "class Window {};").unwrap();
+        assert!(hpp_res.is_some());
+        let hpp_tags = hpp_res.unwrap();
+        assert_eq!(hpp_tags.definitions.len(), 1);
+        assert_eq!(hpp_tags.definitions[0].name, "Window");
 
         let non_supported = parse_file(Path::new("src/lib.txt"), "hello").unwrap();
         assert!(non_supported.is_none());

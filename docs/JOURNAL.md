@@ -66,3 +66,23 @@
   - Verdict: **ACCEPTED**.
 - **Milestone**: All 11 tasks completed. Definition of Done 100% demonstrated by executed automated tests.
 - **Boss Request**: Documented explicitly in `README.md` that the project was 100% vibe coded (AI agent orchestration + strict TDD). Verified with full test suite passing.
+- **Scope Amendment v1.1 Proposal**: Adding C and C++ AST support.
+  - Spec updated: `docs/SPEC.md` v1.1.
+  - Plan updated: `docs/PLAN.md` with Wave 6 (tasks T-12, T-13, T-14).
+- **Approval**: Boss provided "SPEC APPROVED et GO" for Wave 6. Launching T-12.
+- **Delegation T-12**: C/C++ dependencies (`tree-sitter-c`, `tree-sitter-cpp`) and scanner extension in `src/scanner.rs`.
+  - Subagent: `92f717f1-372c-436f-bcd6-530e5868926c`
+  - Scope: `Cargo.toml`, `src/scanner.rs`.
+  - Independent check: `cargo test scanner::tests` -> Pass (4/4 tests passed).
+  - Verdict: **ACCEPTED**.
+- **Delegation T-13**: C and C++ AST parsers in `src/parser/c.rs` and `src/parser/cpp.rs`.
+  - Subagent: `738f3ceb-64f4-4314-9967-8db883000a7f`
+  - Scope: `src/parser/c.rs`, `src/parser/cpp.rs`, `src/parser/mod.rs`.
+  - Independent check: `cargo test parser::c::tests && cargo test parser::cpp::tests` -> Pass (11/11 tests passed).
+  - Verdict: **ACCEPTED**.
+- **Delegation T-14**: C & C++ fixtures, integration test suite, and README.md.
+  - Subagent: `854e0222-8457-4c36-9f66-c3fc98754dd0`
+  - Scope: `tests/fixtures/sample_repo/module.c`, `tests/fixtures/sample_repo/engine.cpp`, `tests/integration_test.rs`, `README.md`.
+  - Independent check: `cargo test` (51 tests passed, 0 failed), `cargo clippy` (0 warnings), `cargo fmt --check` (clean).
+  - Verdict: **ACCEPTED**.
+- **Milestone**: Wave 6 (Scope Amendment v1.1) completed. C and C++ support 100% operational and verified.

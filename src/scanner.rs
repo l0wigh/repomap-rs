@@ -17,7 +17,24 @@ pub fn is_supported_source_file(path: &Path) -> bool {
 
     matches!(
         ext.as_str(),
-        "rs" | "py" | "js" | "jsx" | "mjs" | "cjs" | "ts" | "tsx" | "mts" | "cts" | "go"
+        "rs" | "py"
+            | "js"
+            | "jsx"
+            | "mjs"
+            | "cjs"
+            | "ts"
+            | "tsx"
+            | "mts"
+            | "cts"
+            | "go"
+            | "c"
+            | "h"
+            | "cpp"
+            | "cc"
+            | "cxx"
+            | "hpp"
+            | "hh"
+            | "hxx"
     )
 }
 
@@ -82,6 +99,8 @@ mod tests {
         File::create(temp.join("types.ts")).unwrap();
         File::create(temp.join("view.tsx")).unwrap();
         File::create(temp.join("main.go")).unwrap();
+        File::create(temp.join("util.c")).unwrap();
+        File::create(temp.join("engine.cpp")).unwrap();
 
         // Unsupported files
         File::create(temp.join("styles.css")).unwrap();
@@ -98,11 +117,13 @@ mod tests {
                 PathBuf::from("app.py"),
                 PathBuf::from("common.cjs"),
                 PathBuf::from("component.jsx"),
+                PathBuf::from("engine.cpp"),
                 PathBuf::from("index.js"),
                 PathBuf::from("lib.rs"),
                 PathBuf::from("main.go"),
                 PathBuf::from("module.mjs"),
                 PathBuf::from("types.ts"),
+                PathBuf::from("util.c"),
                 PathBuf::from("view.tsx"),
             ]
         );
@@ -167,10 +188,20 @@ mod tests {
         assert!(is_supported_source_file(Path::new("server.go")));
         assert!(is_supported_source_file(Path::new("types.mts")));
         assert!(is_supported_source_file(Path::new("types.cts")));
+        assert!(is_supported_source_file(Path::new("main.c")));
+        assert!(is_supported_source_file(Path::new("header.h")));
+        assert!(is_supported_source_file(Path::new("source.cpp")));
+        assert!(is_supported_source_file(Path::new("header.hpp")));
+        assert!(is_supported_source_file(Path::new("file.cc")));
+        assert!(is_supported_source_file(Path::new("file.cxx")));
+        assert!(is_supported_source_file(Path::new("header.hh")));
+        assert!(is_supported_source_file(Path::new("header.hxx")));
 
         // Case insensitivity
         assert!(is_supported_source_file(Path::new("MAIN.RS")));
         assert!(is_supported_source_file(Path::new("SCRIPT.PY")));
+        assert!(is_supported_source_file(Path::new("MAIN.C")));
+        assert!(is_supported_source_file(Path::new("MAIN.CPP")));
 
         // Unsupported
         assert!(!is_supported_source_file(Path::new("file.txt")));

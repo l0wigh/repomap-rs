@@ -32,11 +32,13 @@ fn test_e2e_multi_language_parsing_and_filtering() {
     let (files, file_tags) = load_fixture_repo(&fixture_root);
 
     // 1. Check file discovery and gitignore/extension filtering
-    // Allowed fixture source files: app.ts, auth.py, server.go, service.rs, utils.js
+    // Allowed fixture source files: app.ts, auth.py, engine.cpp, module.c, server.go, service.rs, utils.js
     // Excluded: doc.txt (unsupported extension), ignored.rs (.gitignore), build/ignored.rs (.gitignore)
     let expected_files = vec![
         PathBuf::from("app.ts"),
         PathBuf::from("auth.py"),
+        PathBuf::from("engine.cpp"),
+        PathBuf::from("module.c"),
         PathBuf::from("server.go"),
         PathBuf::from("service.rs"),
         PathBuf::from("utils.js"),
@@ -46,8 +48,8 @@ fn test_e2e_multi_language_parsing_and_filtering() {
         "Discovered files must strictly match expected supported files"
     );
 
-    // 2. Verify all 5 languages are parsed and tags extracted
-    assert_eq!(file_tags.len(), 5);
+    // 2. Verify all 7 languages are parsed and tags extracted
+    assert_eq!(file_tags.len(), 7);
 
     // TypeScript: app.ts defines AppController, references UserService
     let app_ts = file_tags
@@ -120,6 +122,55 @@ fn test_e2e_multi_language_parsing_and_filtering() {
         utils_js.definitions.iter().any(|d| d.name == "formatData"),
         "formatData not found in utils.js"
     );
+
+    // C: module.c defines c_module_init and CConfig, references ServerHandler
+    let module_c = file_tags
+        .iter()
+        .find(|ft| ft.path == Path::new("module.c"))
+        .expect("module.c tags missing");
+    assert!(
+        module_c
+            .definitions
+            .iter()
+            .any(|d| d.name == "c_module_init"),
+        "c_module_init not found in module.c"
+    );
+    assert!(
+        module_c.definitions.iter().any(|d| d.name == "CConfig"),
+        "CConfig not found in module.c"
+    );
+    assert!(
+        module_c.references.contains("ServerHandler"),
+        "module.c should reference ServerHandler"
+    );
+
+    // C++: engine.cpp defines RenderingEngine, start, and CoreEngine, references c_module_init
+    let engine_cpp = file_tags
+        .iter()
+        .find(|ft| ft.path == Path::new("engine.cpp"))
+        .expect("engine.cpp tags missing");
+    assert!(
+        engine_cpp
+            .definitions
+            .iter()
+            .any(|d| d.name == "RenderingEngine"),
+        "RenderingEngine not found in engine.cpp"
+    );
+    assert!(
+        engine_cpp.definitions.iter().any(|d| d.name == "start"),
+        "start not found in engine.cpp"
+    );
+    assert!(
+        engine_cpp
+            .definitions
+            .iter()
+            .any(|d| d.name == "CoreEngine"),
+        "CoreEngine not found in engine.cpp"
+    );
+    assert!(
+        engine_cpp.references.contains("c_module_init"),
+        "engine.cpp should reference c_module_init"
+    );
 }
 
 #[test]
@@ -129,7 +180,7 @@ fn test_e2e_personalized_pagerank_focus() {
     let graph = RepoGraph::from_file_tags(&file_tags);
 
     // Graph dependency chains:
-    // server.go -> app.ts (AppController) -> service.rs (UserService) -> auth.py (AuthClient)
+    // engine.cpp -> module.c (c_module_init) -> server.go (ServerHandler) -> app.ts (AppController) -> service.rs (UserService) -> auth.py (AuthClient)
     // utils.js is disconnected.
     //
     // Case 1: Focusing on auth.py

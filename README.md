@@ -17,6 +17,8 @@ A fast, lightweight Rust CLI and library for generating concise, high-value repo
   - **JavaScript** (`.js`, `.jsx`, `.mjs`, `.cjs`)
   - **TypeScript** (`.ts`, `.tsx`, `.mts`, `.cts`)
   - **Go** (`.go`)
+  - **C** (`.c`, `.h`)
+  - **C++** (`.cpp`, `.cc`, `.cxx`, `.hpp`, `.hh`, `.hxx`)
 - **Gitignore & Hidden File Filtering**: Native directory traversal respecting `.gitignore`, `.git/` exclusions, and hidden files via the `ignore` crate.
 - **Reference Graph & PageRank**: Automatically infers directed dependency edges between referencing files and defining files. Computes global PageRank or Personalized PageRank (PPR) when biased towards `--focus` targets.
 - **Strict Token Budgeting**: Accurate BPE token counting with `tiktoken-rs` (`cl100k_base` and `o200k_base`). A greedy selection algorithm ensures the generated map never exceeds the configured token limit.

@@ -154,3 +154,34 @@ pub struct FileTags {
 - **Forbidden**: —
 - **Toolsets**: terminal, file
 - **Acceptance**: `cargo test --test integration_test` → 100% pass; `cargo clippy --all-targets -- -D warnings` → 0 warnings; `cargo fmt --check` → OK.
+
+---
+
+### Wave 6 — Scope Amendment v1.1: C & C++ AST Support
+
+#### T-12 | Dependencies & Scanner Extension for C & C++ (TDD) [STATUS: DONE]
+- **Covers**: FR-01, FR-02
+- **Depends on**: T-11 | **Wave**: 6
+- **Write**: `Cargo.toml`, `src/scanner.rs`
+- **Read**: `docs/SPEC.md`
+- **Forbidden**: `src/parser/*`, `src/graph.rs`, `src/budget.rs`, `src/formatter/*`, `src/main.rs`
+- **Toolsets**: terminal, file
+- **Acceptance**: `cargo test scanner::tests` → 100% pass (validates detection of `.c`, `.h`, `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hh`, `.hxx`).
+
+#### T-13 | C & C++ AST Parsers (TDD) [STATUS: DONE]
+- **Covers**: FR-02
+- **Depends on**: T-12 | **Wave**: 6
+- **Write**: `src/parser/c.rs`, `src/parser/cpp.rs`, `src/parser/mod.rs`
+- **Read**: `src/parser/rust.rs`, `src/lib.rs`, `Cargo.toml`
+- **Forbidden**: `src/scanner.rs`, `src/graph.rs`, `src/budget.rs`, `src/formatter/*`, `src/main.rs`
+- **Toolsets**: terminal, file
+- **Acceptance**: `cargo test parser::c::tests && cargo test parser::cpp::tests` → 100% pass (extracts functions, structs, classes, namespaces, methods, typedefs, and references).
+
+#### T-14 | Integration Test Suite & Fixtures Update for C & C++ [STATUS: DONE]
+- **Covers**: FR-01 to FR-06, NFR-01..04
+- **Depends on**: T-13 | **Wave**: 6
+- **Write**: `tests/fixtures/sample_repo/module.c`, `tests/fixtures/sample_repo/engine.cpp`, `tests/integration_test.rs`, `README.md`
+- **Read**: `src/*`, `docs/SPEC.md`
+- **Forbidden**: `src/scanner.rs`, `src/parser/*`, `src/graph.rs`, `src/budget.rs`, `src/formatter/*`, `src/main.rs`
+- **Toolsets**: terminal, file
+- **Acceptance**: `cargo test --test integration_test` → 100% pass; `cargo clippy --all-targets -- -D warnings` → 0 warnings; `cargo fmt --check` → OK.

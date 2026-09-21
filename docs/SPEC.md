@@ -1,4 +1,4 @@
-# SPEC — repomap-rs — v1.0 — 2026-09-21
+# SPEC — repomap-rs — v1.1 — 2026-09-21
 
 ## 1. Context and objective
 repomap-rs is a Rust-based CLI and library designed to generate a concise, high-value repository map ("repomap") inspired by Aider. Its primary objective is to provide autonomous AI coding agents with a structured overview of a codebase (file paths, classes, functions, signatures) that prioritizes the most relevant context and fits strictly within a user-defined LLM token budget.
@@ -6,7 +6,7 @@ repomap-rs is a Rust-based CLI and library designed to generate a concise, high-
 ## 2. Scope: explicitly in / explicitly out
 ### Explicitly In:
 - Local Git repository scanning with strict `.gitignore` and hidden file handling via the `ignore` crate.
-- Abstract Syntax Tree (AST) parsing for definitions (types, functions, methods) and references for 5 core languages: Rust, Python, JavaScript, TypeScript, and Go.
+- Abstract Syntax Tree (AST) parsing for definitions (types, functions, methods, classes) and references for 7 core languages: Rust, Python, JavaScript, TypeScript, Go, C, and C++.
 - Dependency / reference graph construction between files and symbols.
 - PageRank and Personalized PageRank (PPR) algorithms to score importance, with optional target "focus" files.
 - Accurate token counting and budget trimming using `tiktoken-rs` (OpenAI tokenizers: `cl100k_base`, `o200k_base`).
@@ -32,8 +32,8 @@ repomap-rs is a Rust-based CLI and library designed to generate a concise, high-
   - Acceptance: Running discovery on a Git repo ignores ignored files, `.git/`, and binary files. Command: `cargo test test_scanner_` passes.
 - **FR-02: Multi-Language AST Symbol & Reference Extraction**
   - Priority: Must
-  - Description: Parse files using `tree-sitter` to extract definitions (classes, structs, interfaces, functions, methods, traits) with line numbers and signature text, as well as identifier references.
-  - Supported grammars in V1: Rust, Python, JavaScript, TypeScript, Go.
+  - Description: Parse files using `tree-sitter` to extract definitions (classes, structs, interfaces, functions, methods, traits, namespaces) with line numbers and signature text, as well as identifier references.
+  - Supported grammars in V1.1: Rust, Python, JavaScript, TypeScript, Go, C, C++.
   - Acceptance: For each supported language fixture, all defined top-level/member symbols and referenced identifiers are accurately extracted. Command: `cargo test test_parser_` passes.
 - **FR-03: Reference Graph & (Personalized) PageRank Scoring**
   - Priority: Must
@@ -70,7 +70,7 @@ repomap-rs is a Rust-based CLI and library designed to generate a concise, high-
 - **Target OS**: Linux x86_64 / POSIX.
 - **Dependencies**:
   - `clap`: CLI argument parsing (v4, features: `derive`).
-  - `tree-sitter`: AST parsing (v0.25 or compatible) + official tree-sitter language grammars (`tree-sitter-rust`, `tree-sitter-python`, `tree-sitter-javascript`, `tree-sitter-typescript`, `tree-sitter-go`).
+  - `tree-sitter`: AST parsing (v0.27 or compatible) + official tree-sitter language grammars (`tree-sitter-rust`, `tree-sitter-python`, `tree-sitter-javascript`, `tree-sitter-typescript`, `tree-sitter-go`, `tree-sitter-c`, `tree-sitter-cpp`).
   - `ignore`: File walker respecting `.gitignore`.
   - `tiktoken-rs`: Accurate BPE tokenization.
   - `serde`, `serde_json`: Serialization for JSON output.
@@ -133,6 +133,7 @@ repomap-rs/
 - 2026-09-21: Real token counting via `tiktoken-rs` (`cl100k_base` default).
 - 2026-09-21: Dual output formats: Aider-style text (default) and JSON.
 - 2026-09-21: Git file discovery via `ignore` crate.
+- 2026-09-21: Scope amendment v1.1 adding C and C++ grammars and extensions.
 
 ## 12. Risks
 - **Grammar build complexity**: C bindings required for certain tree-sitter grammars (e.g. `cc` build dependency). Mitigation: Use standard `tree-sitter-*` crates which bundle C sources with `cc` in `build.rs`.
@@ -142,9 +143,10 @@ repomap-rs/
 *(None — all points resolved)*
 
 ## 14. Out of scope / future evolutions
-- Additional language grammars (C, C++, Java, C#, Ruby, PHP).
+- Additional language grammars (Java, C#, Ruby, PHP).
 - LSP semantic cross-file resolution.
 - Git diff/commit-based incremental caching.
 
 ## 15. Version history
 - v1.0 (2026-09-21): Initial specification approved for review.
+- v1.1 (2026-09-21): Scope amendment adding C and C++ language AST support.
