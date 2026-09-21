@@ -86,3 +86,23 @@
   - Independent check: `cargo test` (51 tests passed, 0 failed), `cargo clippy` (0 warnings), `cargo fmt --check` (clean).
   - Verdict: **ACCEPTED**.
 - **Milestone**: Wave 6 (Scope Amendment v1.1) completed. C and C++ support 100% operational and verified.
+- **Scope Amendment v1.2 Proposal**: Adding Web & API Majors (PHP, Java, C#, Ruby, Kotlin).
+  - Spec updated: `docs/SPEC.md` v1.2.
+  - Plan updated: `docs/PLAN.md` with Wave 7 (tasks T-15, T-16, T-17).
+- **Approval**: Boss provided "GO" for Wave 7. Launching T-15.
+- **Delegation T-15**: Dependencies (PHP, Java, C#, Ruby, Kotlin) and scanner extension in `src/scanner.rs`.
+  - Subagent: `ea1caa0c-b904-4264-a800-dfa003866301`
+  - Scope: `Cargo.toml`, `src/scanner.rs`.
+  - Independent check: `cargo test scanner::tests` -> Pass (4/4 tests passed).
+  - Verdict: **ACCEPTED**.
+- **Delegation T-16**: AST parsers for PHP, Java, C#, Ruby, and Kotlin.
+  - Subagent: `cf45099d-e697-4543-a850-b5d8e371db37`
+  - Scope: `src/parser/php.rs`, `src/parser/java.rs`, `src/parser/csharp.rs`, `src/parser/ruby.rs`, `src/parser/kotlin.rs`, `src/parser/mod.rs`.
+  - Independent check: `cargo test` (61 unit tests passed, 0 failed).
+  - Verdict: **ACCEPTED**.
+- **Delegation T-17**: 12-language fixtures, integration test suite, and README.md.
+  - Subagent: `abbc8947-95ca-4d76-ae40-9b70b63bd7db`
+  - Scope: `tests/fixtures/sample_repo/...`, `tests/integration_test.rs`, `README.md`.
+  - Independent check: `cargo test` (66 tests passed, 0 failed), `cargo clippy` (0 warnings), `cargo fmt --check` (clean).
+  - Verdict: **ACCEPTED**.
+- **Milestone**: Wave 7 (Scope Amendment v1.2) completed. Universal 12-language Web & API coverage fully operational.

@@ -32,24 +32,31 @@ fn test_e2e_multi_language_parsing_and_filtering() {
     let (files, file_tags) = load_fixture_repo(&fixture_root);
 
     // 1. Check file discovery and gitignore/extension filtering
-    // Allowed fixture source files: app.ts, auth.py, engine.cpp, module.c, server.go, service.rs, utils.js
+    // Allowed fixture source files (12 languages):
+    // AnalyticsTracker.kt, DatabaseService.java, OrderService.cs, app.ts, auth.py, controller.php,
+    // engine.cpp, module.c, server.go, service.rs, utils.js, worker.rb
     // Excluded: doc.txt (unsupported extension), ignored.rs (.gitignore), build/ignored.rs (.gitignore)
     let expected_files = vec![
+        PathBuf::from("AnalyticsTracker.kt"),
+        PathBuf::from("DatabaseService.java"),
+        PathBuf::from("OrderService.cs"),
         PathBuf::from("app.ts"),
         PathBuf::from("auth.py"),
+        PathBuf::from("controller.php"),
         PathBuf::from("engine.cpp"),
         PathBuf::from("module.c"),
         PathBuf::from("server.go"),
         PathBuf::from("service.rs"),
         PathBuf::from("utils.js"),
+        PathBuf::from("worker.rb"),
     ];
     assert_eq!(
         files, expected_files,
         "Discovered files must strictly match expected supported files"
     );
 
-    // 2. Verify all 7 languages are parsed and tags extracted
-    assert_eq!(file_tags.len(), 7);
+    // 2. Verify all 12 languages are parsed and tags extracted
+    assert_eq!(file_tags.len(), 12);
 
     // TypeScript: app.ts defines AppController, references UserService
     let app_ts = file_tags
@@ -171,6 +178,91 @@ fn test_e2e_multi_language_parsing_and_filtering() {
         engine_cpp.references.contains("c_module_init"),
         "engine.cpp should reference c_module_init"
     );
+
+    // PHP: controller.php defines ApiController, references UserService
+    let controller_php = file_tags
+        .iter()
+        .find(|ft| ft.path == Path::new("controller.php"))
+        .expect("controller.php tags missing");
+    assert!(
+        controller_php
+            .definitions
+            .iter()
+            .any(|d| d.name == "ApiController"),
+        "ApiController not found in controller.php"
+    );
+    assert!(
+        controller_php.references.contains("UserService"),
+        "controller.php should reference UserService"
+    );
+
+    // Java: DatabaseService.java defines DatabaseService, references ApiController
+    let db_java = file_tags
+        .iter()
+        .find(|ft| ft.path == Path::new("DatabaseService.java"))
+        .expect("DatabaseService.java tags missing");
+    assert!(
+        db_java
+            .definitions
+            .iter()
+            .any(|d| d.name == "DatabaseService"),
+        "DatabaseService not found in DatabaseService.java"
+    );
+    assert!(
+        db_java.references.contains("ApiController"),
+        "DatabaseService.java should reference ApiController"
+    );
+
+    // C#: OrderService.cs defines OrderService, references DatabaseService
+    let order_cs = file_tags
+        .iter()
+        .find(|ft| ft.path == Path::new("OrderService.cs"))
+        .expect("OrderService.cs tags missing");
+    assert!(
+        order_cs
+            .definitions
+            .iter()
+            .any(|d| d.name == "OrderService"),
+        "OrderService not found in OrderService.cs"
+    );
+    assert!(
+        order_cs.references.contains("DatabaseService"),
+        "OrderService.cs should reference DatabaseService"
+    );
+
+    // Ruby: worker.rb defines BackgroundWorker, references OrderService
+    let worker_rb = file_tags
+        .iter()
+        .find(|ft| ft.path == Path::new("worker.rb"))
+        .expect("worker.rb tags missing");
+    assert!(
+        worker_rb
+            .definitions
+            .iter()
+            .any(|d| d.name == "BackgroundWorker"),
+        "BackgroundWorker not found in worker.rb"
+    );
+    assert!(
+        worker_rb.references.contains("OrderService"),
+        "worker.rb should reference OrderService"
+    );
+
+    // Kotlin: AnalyticsTracker.kt defines AnalyticsTracker, references BackgroundWorker
+    let analytics_kt = file_tags
+        .iter()
+        .find(|ft| ft.path == Path::new("AnalyticsTracker.kt"))
+        .expect("AnalyticsTracker.kt tags missing");
+    assert!(
+        analytics_kt
+            .definitions
+            .iter()
+            .any(|d| d.name == "AnalyticsTracker"),
+        "AnalyticsTracker not found in AnalyticsTracker.kt"
+    );
+    assert!(
+        analytics_kt.references.contains("BackgroundWorker"),
+        "AnalyticsTracker.kt should reference BackgroundWorker"
+    );
 }
 
 #[test]
@@ -180,6 +272,7 @@ fn test_e2e_personalized_pagerank_focus() {
     let graph = RepoGraph::from_file_tags(&file_tags);
 
     // Graph dependency chains:
+    // AnalyticsTracker.kt -> worker.rb (BackgroundWorker) -> OrderService.cs (OrderService) -> DatabaseService.java (DatabaseService) -> controller.php (ApiController) -> service.rs (UserService) -> auth.py (AuthClient)
     // engine.cpp -> module.c (c_module_init) -> server.go (ServerHandler) -> app.ts (AppController) -> service.rs (UserService) -> auth.py (AuthClient)
     // utils.js is disconnected.
     //

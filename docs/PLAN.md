@@ -185,3 +185,34 @@ pub struct FileTags {
 - **Forbidden**: `src/scanner.rs`, `src/parser/*`, `src/graph.rs`, `src/budget.rs`, `src/formatter/*`, `src/main.rs`
 - **Toolsets**: terminal, file
 - **Acceptance**: `cargo test --test integration_test` → 100% pass; `cargo clippy --all-targets -- -D warnings` → 0 warnings; `cargo fmt --check` → OK.
+
+---
+
+### Wave 7 — Scope Amendment v1.2: Web & API Majors (PHP, Java, C#, Ruby, Kotlin)
+
+#### T-15 | Dependencies & Scanner Extension for PHP, Java, C#, Ruby, Kotlin (TDD) [STATUS: DONE]
+- **Covers**: FR-01, FR-02
+- **Depends on**: T-14 | **Wave**: 7
+- **Write**: `Cargo.toml`, `src/scanner.rs`
+- **Read**: `docs/SPEC.md`
+- **Forbidden**: `src/parser/*`, `src/graph.rs`, `src/budget.rs`, `src/formatter/*`, `src/main.rs`
+- **Toolsets**: terminal, file
+- **Acceptance**: `cargo test scanner::tests` → 100% pass (validates detection of `.php`, `.phtml`, `.java`, `.cs`, `.rb`, `.kt`, `.kts`).
+
+#### T-16 | AST Parsers for PHP, Java, C#, Ruby, Kotlin (TDD) [STATUS: DONE]
+- **Covers**: FR-02
+- **Depends on**: T-15 | **Wave**: 7
+- **Write**: `src/parser/php.rs`, `src/parser/java.rs`, `src/parser/csharp.rs`, `src/parser/ruby.rs`, `src/parser/kotlin.rs`, `src/parser/mod.rs`
+- **Read**: `src/parser/rust.rs`, `src/lib.rs`, `Cargo.toml`
+- **Forbidden**: `src/scanner.rs`, `src/graph.rs`, `src/budget.rs`, `src/formatter/*`, `src/main.rs`
+- **Toolsets**: terminal, file
+- **Acceptance**: `cargo test parser::php::tests && cargo test parser::java::tests && cargo test parser::csharp::tests && cargo test parser::ruby::tests && cargo test parser::kotlin::tests` → 100% pass.
+
+#### T-17 | Multi-Language Fixtures, Integration Tests & Docs Update [STATUS: DONE]
+- **Covers**: FR-01 to FR-06, NFR-01..04
+- **Depends on**: T-16 | **Wave**: 7
+- **Write**: `tests/fixtures/sample_repo/...`, `tests/integration_test.rs`, `README.md`
+- **Read**: `src/*`, `docs/SPEC.md`
+- **Forbidden**: `src/scanner.rs`, `src/parser/*`, `src/graph.rs`, `src/budget.rs`, `src/formatter/*`, `src/main.rs`
+- **Toolsets**: terminal, file
+- **Acceptance**: `cargo test --test integration_test` → 100% pass; `cargo clippy --all-targets -- -D warnings` → 0 warnings; `cargo fmt --check` → OK.

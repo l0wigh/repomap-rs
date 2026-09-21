@@ -35,6 +35,13 @@ pub fn is_supported_source_file(path: &Path) -> bool {
             | "hpp"
             | "hh"
             | "hxx"
+            | "php"
+            | "phtml"
+            | "java"
+            | "cs"
+            | "rb"
+            | "kt"
+            | "kts"
     )
 }
 
@@ -101,6 +108,13 @@ mod tests {
         File::create(temp.join("main.go")).unwrap();
         File::create(temp.join("util.c")).unwrap();
         File::create(temp.join("engine.cpp")).unwrap();
+        File::create(temp.join("index.php")).unwrap();
+        File::create(temp.join("template.phtml")).unwrap();
+        File::create(temp.join("service.java")).unwrap();
+        File::create(temp.join("worker.cs")).unwrap();
+        File::create(temp.join("script.rb")).unwrap();
+        File::create(temp.join("runner.kt")).unwrap();
+        File::create(temp.join("build.kts")).unwrap();
 
         // Unsupported files
         File::create(temp.join("styles.css")).unwrap();
@@ -115,16 +129,23 @@ mod tests {
             files,
             vec![
                 PathBuf::from("app.py"),
+                PathBuf::from("build.kts"),
                 PathBuf::from("common.cjs"),
                 PathBuf::from("component.jsx"),
                 PathBuf::from("engine.cpp"),
                 PathBuf::from("index.js"),
+                PathBuf::from("index.php"),
                 PathBuf::from("lib.rs"),
                 PathBuf::from("main.go"),
                 PathBuf::from("module.mjs"),
+                PathBuf::from("runner.kt"),
+                PathBuf::from("script.rb"),
+                PathBuf::from("service.java"),
+                PathBuf::from("template.phtml"),
                 PathBuf::from("types.ts"),
                 PathBuf::from("util.c"),
                 PathBuf::from("view.tsx"),
+                PathBuf::from("worker.cs"),
             ]
         );
 
@@ -196,12 +217,26 @@ mod tests {
         assert!(is_supported_source_file(Path::new("file.cxx")));
         assert!(is_supported_source_file(Path::new("header.hh")));
         assert!(is_supported_source_file(Path::new("header.hxx")));
+        assert!(is_supported_source_file(Path::new("index.php")));
+        assert!(is_supported_source_file(Path::new("template.phtml")));
+        assert!(is_supported_source_file(Path::new("service.java")));
+        assert!(is_supported_source_file(Path::new("worker.cs")));
+        assert!(is_supported_source_file(Path::new("script.rb")));
+        assert!(is_supported_source_file(Path::new("runner.kt")));
+        assert!(is_supported_source_file(Path::new("build.kts")));
 
         // Case insensitivity
         assert!(is_supported_source_file(Path::new("MAIN.RS")));
         assert!(is_supported_source_file(Path::new("SCRIPT.PY")));
         assert!(is_supported_source_file(Path::new("MAIN.C")));
         assert!(is_supported_source_file(Path::new("MAIN.CPP")));
+        assert!(is_supported_source_file(Path::new("INDEX.PHP")));
+        assert!(is_supported_source_file(Path::new("TEMPLATE.PHTML")));
+        assert!(is_supported_source_file(Path::new("SERVICE.JAVA")));
+        assert!(is_supported_source_file(Path::new("WORKER.CS")));
+        assert!(is_supported_source_file(Path::new("SCRIPT.RB")));
+        assert!(is_supported_source_file(Path::new("RUNNER.KT")));
+        assert!(is_supported_source_file(Path::new("BUILD.KTS")));
 
         // Unsupported
         assert!(!is_supported_source_file(Path::new("file.txt")));

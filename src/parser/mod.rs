@@ -9,9 +9,14 @@ pub trait LanguageParser: Send + Sync {
 
 pub mod c;
 pub mod cpp;
+pub mod csharp;
 pub mod go;
+pub mod java;
 pub mod javascript;
+pub mod kotlin;
+pub mod php;
 pub mod python;
+pub mod ruby;
 pub mod rust;
 pub mod typescript;
 
@@ -44,6 +49,26 @@ pub fn parse_file(path: &Path, content: &str) -> Result<Option<FileTags>> {
         }
         "cpp" | "cc" | "cxx" | "hpp" | "hh" | "hxx" => {
             let parser = cpp::CppParser::new()?;
+            Ok(Some(parser.parse(path, content)?))
+        }
+        "php" | "phtml" => {
+            let parser = php::PhpParser::new()?;
+            Ok(Some(parser.parse(path, content)?))
+        }
+        "java" => {
+            let parser = java::JavaParser::new()?;
+            Ok(Some(parser.parse(path, content)?))
+        }
+        "cs" => {
+            let parser = csharp::CsharpParser::new()?;
+            Ok(Some(parser.parse(path, content)?))
+        }
+        "rb" => {
+            let parser = ruby::RubyParser::new()?;
+            Ok(Some(parser.parse(path, content)?))
+        }
+        "kt" | "kts" => {
+            let parser = kotlin::KotlinParser::new()?;
             Ok(Some(parser.parse(path, content)?))
         }
         _ => Ok(None),
@@ -121,6 +146,49 @@ mod tests {
         let hpp_tags = hpp_res.unwrap();
         assert_eq!(hpp_tags.definitions.len(), 1);
         assert_eq!(hpp_tags.definitions[0].name, "Window");
+
+        let php_res =
+            parse_file(Path::new("src/index.php"), "<?php function phpFunc() {}").unwrap();
+        assert!(php_res.is_some());
+        let php_tags = php_res.unwrap();
+        assert_eq!(php_tags.definitions.len(), 1);
+        assert_eq!(php_tags.definitions[0].name, "phpFunc");
+
+        let phtml_res = parse_file(Path::new("src/template.phtml"), "<?php class View {}").unwrap();
+        assert!(phtml_res.is_some());
+        let phtml_tags = phtml_res.unwrap();
+        assert_eq!(phtml_tags.definitions.len(), 1);
+        assert_eq!(phtml_tags.definitions[0].name, "View");
+
+        let java_res = parse_file(Path::new("src/Main.java"), "public class Main {}").unwrap();
+        assert!(java_res.is_some());
+        let java_tags = java_res.unwrap();
+        assert_eq!(java_tags.definitions.len(), 1);
+        assert_eq!(java_tags.definitions[0].name, "Main");
+
+        let cs_res = parse_file(Path::new("src/App.cs"), "public class App {}").unwrap();
+        assert!(cs_res.is_some());
+        let cs_tags = cs_res.unwrap();
+        assert_eq!(cs_tags.definitions.len(), 1);
+        assert_eq!(cs_tags.definitions[0].name, "App");
+
+        let rb_res = parse_file(Path::new("src/app.rb"), "def ruby_method\nend").unwrap();
+        assert!(rb_res.is_some());
+        let rb_tags = rb_res.unwrap();
+        assert_eq!(rb_tags.definitions.len(), 1);
+        assert_eq!(rb_tags.definitions[0].name, "ruby_method");
+
+        let kt_res = parse_file(Path::new("src/App.kt"), "class KotlinApp {}").unwrap();
+        assert!(kt_res.is_some());
+        let kt_tags = kt_res.unwrap();
+        assert_eq!(kt_tags.definitions.len(), 1);
+        assert_eq!(kt_tags.definitions[0].name, "KotlinApp");
+
+        let kts_res = parse_file(Path::new("src/build.gradle.kts"), "fun config() {}").unwrap();
+        assert!(kts_res.is_some());
+        let kts_tags = kts_res.unwrap();
+        assert_eq!(kts_tags.definitions.len(), 1);
+        assert_eq!(kts_tags.definitions[0].name, "config");
 
         let non_supported = parse_file(Path::new("src/lib.txt"), "hello").unwrap();
         assert!(non_supported.is_none());
