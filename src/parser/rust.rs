@@ -70,16 +70,26 @@ fn is_method(node: &tree_sitter::Node) -> bool {
 
 fn extract_signature(node: &tree_sitter::Node, content: &str) -> String {
     let text = &content[node.byte_range()];
-    let cut = if let Some(idx) = text.find(['{', ';']) {
-        &text[..idx]
+    if node.kind() == "type_item" || node.kind() == "associated_type" {
+        let trimmed = text.trim().trim_end_matches(';').trim();
+        let collapsed: String = trimmed.split_whitespace().collect::<Vec<_>>().join(" ");
+        if collapsed.len() > 120 {
+            format!("{}...", &collapsed[..117])
+        } else {
+            collapsed
+        }
     } else {
-        text
-    };
-    let trimmed = cut.trim();
-    if trimmed.contains('\n') {
-        trimmed.lines().next().unwrap_or("").trim().to_string()
-    } else {
-        trimmed.to_string()
+        let cut = if let Some(idx) = text.find(['{', ';']) {
+            &text[..idx]
+        } else {
+            text
+        };
+        let trimmed = cut.trim();
+        if trimmed.contains('\n') {
+            trimmed.lines().next().unwrap_or("").trim().to_string()
+        } else {
+            trimmed.to_string()
+        }
     }
 }
 
@@ -309,5 +319,26 @@ pub enum IncompleteEnum {
         let valid_fn = tags.definitions.iter().find(|t| t.name == "valid_function");
         assert!(valid_fn.is_some());
         assert_eq!(valid_fn.unwrap().kind, SymbolKind::Function);
+    }
+
+    #[test]
+    fn test_parse_rust_multiline_type_alias() {
+        let parser = RustParser::new().unwrap();
+        let code = r#"
+pub type ComplexResult<T> =
+    Result<T, Box<dyn std::error::Error + Send + Sync>>;
+"#;
+        let tags = parser.parse(Path::new("src/types.rs"), code).unwrap();
+        let alias = tags
+            .definitions
+            .iter()
+            .find(|t| t.name == "ComplexResult")
+            .expect("ComplexResult type alias missing");
+        assert_eq!(alias.kind, SymbolKind::TypeAlias);
+        assert_eq!(
+            alias.signature,
+            "pub type ComplexResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>"
+        );
+        assert!(!alias.signature.ends_with('='));
     }
 }

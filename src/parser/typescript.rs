@@ -84,30 +84,50 @@ fn extract_signature(node: &tree_sitter::Node, content: &str) -> String {
         node.start_byte()
     };
 
-    let text = if let Some(body) = node.child_by_field_name("body") {
-        if body.start_byte() >= start && body.start_byte() <= content.len() {
-            &content[start..body.start_byte()]
+    if node.kind() == "type_alias_declaration" {
+        let end = if let Some(parent) = node.parent() {
+            if parent.kind() == "export_statement" {
+                parent.end_byte()
+            } else {
+                node.end_byte()
+            }
+        } else {
+            node.end_byte()
+        };
+        let raw = &content[start..end];
+        let trimmed = raw.trim().trim_end_matches(';').trim();
+        let collapsed: String = trimmed.split_whitespace().collect::<Vec<_>>().join(" ");
+        if collapsed.len() > 120 {
+            format!("{}...", &collapsed[..117])
+        } else {
+            collapsed
+        }
+    } else {
+        let text = if let Some(body) = node.child_by_field_name("body") {
+            if body.start_byte() >= start && body.start_byte() <= content.len() {
+                &content[start..body.start_byte()]
+            } else {
+                &content[start..node.end_byte()]
+            }
         } else {
             &content[start..node.end_byte()]
-        }
-    } else {
-        &content[start..node.end_byte()]
-    };
+        };
 
-    let cut = if let Some(idx) = text.find(['{', ';']) {
-        if node.child_by_field_name("body").is_some() {
-            text
+        let cut = if let Some(idx) = text.find(['{', ';']) {
+            if node.child_by_field_name("body").is_some() {
+                text
+            } else {
+                &text[..idx]
+            }
         } else {
-            &text[..idx]
+            text
+        };
+        let trimmed = cut.trim();
+        if trimmed.contains('\n') {
+            trimmed.lines().next().unwrap_or("").trim().to_string()
+        } else {
+            trimmed.to_string()
         }
-    } else {
-        text
-    };
-    let trimmed = cut.trim();
-    if trimmed.contains('\n') {
-        trimmed.lines().next().unwrap_or("").trim().to_string()
-    } else {
-        trimmed.to_string()
     }
 }
 
@@ -352,5 +372,75 @@ export function valid(n: number): number {
         let valid = tags.definitions.iter().find(|t| t.name == "valid");
         assert!(valid.is_some());
         assert_eq!(valid.unwrap().kind, SymbolKind::Function);
+    }
+
+    #[test]
+    fn test_parse_typescript_multiline_union_type() {
+        let parser = TypescriptParser::new().unwrap();
+        let code = r#"
+export type TranslationKey =
+  | 'home.title'
+  | 'home.subtitle';
+"#;
+        let tags = parser.parse(Path::new("types.ts"), code).unwrap();
+        let tk = tags
+            .definitions
+            .iter()
+            .find(|t| t.name == "TranslationKey")
+            .expect("TranslationKey type alias missing");
+        assert_eq!(tk.kind, SymbolKind::TypeAlias);
+        assert!(
+            tk.signature.starts_with("export type TranslationKey ="),
+            "Expected signature to start with 'export type TranslationKey =', got: {}",
+            tk.signature
+        );
+        assert!(
+            tk.signature.contains("'home.title'"),
+            "Expected signature to contain 'home.title', got: {}",
+            tk.signature
+        );
+        assert!(
+            tk.signature.contains("'home.subtitle'"),
+            "Expected signature to contain 'home.subtitle', got: {}",
+            tk.signature
+        );
+        assert!(
+            !tk.signature.ends_with('='),
+            "Signature should not end with dangling '=', got: {}",
+            tk.signature
+        );
+        assert_eq!(
+            tk.signature,
+            "export type TranslationKey = | 'home.title' | 'home.subtitle'"
+        );
+    }
+
+    #[test]
+    fn test_parse_typescript_object_type() {
+        let parser = TypescriptParser::new().unwrap();
+        let code = r#"
+export type AppConfig = {
+  port: number;
+  host: string;
+};
+"#;
+        let tags = parser.parse(Path::new("config.ts"), code).unwrap();
+        let ac = tags
+            .definitions
+            .iter()
+            .find(|t| t.name == "AppConfig")
+            .expect("AppConfig type alias missing");
+        assert_eq!(ac.kind, SymbolKind::TypeAlias);
+        assert!(
+            ac.signature.contains("{ port: number; host: string; }")
+                || ac.signature.contains("{ port: number; host: string }"),
+            "Expected signature to contain object type properties, got: {}",
+            ac.signature
+        );
+        assert!(
+            !ac.signature.ends_with('='),
+            "Signature should not end with dangling '=', got: {}",
+            ac.signature
+        );
     }
 }

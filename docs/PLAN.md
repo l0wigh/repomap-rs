@@ -216,3 +216,16 @@ pub struct FileTags {
 - **Forbidden**: `src/scanner.rs`, `src/parser/*`, `src/graph.rs`, `src/budget.rs`, `src/formatter/*`, `src/main.rs`
 - **Toolsets**: terminal, file
 - **Acceptance**: `cargo test --test integration_test` → 100% pass; `cargo clippy --all-targets -- -D warnings` → 0 warnings; `cargo fmt --check` → OK.
+
+---
+
+### Wave 8 — Quality Enhancement: Full-Range Type Alias Signature Extraction
+
+#### T-18 | Full-Range Type Alias Signature Extraction (TDD) [STATUS: DONE]
+- **Covers**: FR-02, NFR-03
+- **Depends on**: T-17 | **Wave**: 8
+- **Write**: `src/parser/typescript.rs`, `src/parser/rust.rs`, `src/parser/cpp.rs`, `src/parser/csharp.rs`
+- **Read**: `src/lib.rs`, `Cargo.toml`
+- **Forbidden**: `src/scanner.rs`, `src/graph.rs`, `src/budget.rs`, `src/formatter/*`, `src/main.rs`
+- **Toolsets**: terminal, file
+- **Acceptance**: `cargo test` → 100% pass, specifically verifying that multiline type aliases (e.g. `export type TranslationKey = \n | 'a' \n | 'b';`) and object type aliases (`type Config = { port: number };`) do not get truncated to empty `=`.

@@ -58,41 +58,60 @@ impl LanguageParser for CppParser {
 
 fn extract_signature(node: &tree_sitter::Node, content: &str) -> String {
     let text = &content[node.byte_range()];
-    let cut = match node.kind() {
-        "function_definition" => {
-            if let Some(idx) = text.find('{') {
+    match node.kind() {
+        "alias_declaration" | "type_definition" => {
+            let cut = if let Some(idx) = text.find(';') {
                 &text[..idx]
             } else {
                 text
+            };
+            let trimmed = cut.trim();
+            let collapsed: String = trimmed.split_whitespace().collect::<Vec<_>>().join(" ");
+            if collapsed.len() > 120 {
+                format!("{}...", &collapsed[..117])
+            } else {
+                collapsed
+            }
+        }
+        "function_definition" => {
+            let cut = if let Some(idx) = text.find('{') {
+                &text[..idx]
+            } else {
+                text
+            };
+            let trimmed = cut.trim();
+            if trimmed.contains('\n') {
+                trimmed.lines().next().unwrap_or("").trim().to_string()
+            } else {
+                trimmed.to_string()
             }
         }
         "class_specifier" | "struct_specifier" | "enum_specifier" | "namespace_definition" => {
-            if let Some(idx) = text.find(['{', ';']) {
+            let cut = if let Some(idx) = text.find(['{', ';']) {
                 &text[..idx]
             } else {
                 text
-            }
-        }
-        "alias_declaration" | "type_definition" => {
-            if let Some(idx) = text.find(';') {
-                &text[..idx]
+            };
+            let trimmed = cut.trim();
+            if trimmed.contains('\n') {
+                trimmed.lines().next().unwrap_or("").trim().to_string()
             } else {
-                text
+                trimmed.to_string()
             }
         }
         _ => {
-            if let Some(idx) = text.find(['{', ';']) {
+            let cut = if let Some(idx) = text.find(['{', ';']) {
                 &text[..idx]
             } else {
                 text
+            };
+            let trimmed = cut.trim();
+            if trimmed.contains('\n') {
+                trimmed.lines().next().unwrap_or("").trim().to_string()
+            } else {
+                trimmed.to_string()
             }
         }
-    };
-    let trimmed = cut.trim();
-    if trimmed.contains('\n') {
-        trimmed.lines().next().unwrap_or("").trim().to_string()
-    } else {
-        trimmed.to_string()
     }
 }
 
@@ -584,5 +603,27 @@ invalid cpp code >>>> <<<<
             .find(|t| t.name == "valid_func")
             .expect("valid_func should be recovered");
         assert_eq!(func.kind, SymbolKind::Function);
+    }
+
+    #[test]
+    fn test_parse_cpp_multiline_type_alias() {
+        let parser = CppParser::new().unwrap();
+        let code = r#"
+template <typename T>
+using CallbackHandler =
+    std::function<void(const T&, int)>;
+"#;
+        let tags = parser.parse(Path::new("src/types.hpp"), code).unwrap();
+        let alias = tags
+            .definitions
+            .iter()
+            .find(|t| t.name == "CallbackHandler")
+            .expect("CallbackHandler alias missing");
+        assert_eq!(alias.kind, SymbolKind::TypeAlias);
+        assert_eq!(
+            alias.signature,
+            "using CallbackHandler = std::function<void(const T&, int)>"
+        );
+        assert!(!alias.signature.ends_with('='));
     }
 }

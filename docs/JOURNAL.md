@@ -106,3 +106,10 @@
   - Independent check: `cargo test` (66 tests passed, 0 failed), `cargo clippy` (0 warnings), `cargo fmt --check` (clean).
   - Verdict: **ACCEPTED**.
 - **Milestone**: Wave 7 (Scope Amendment v1.2) completed. Universal 12-language Web & API coverage fully operational.
+- **Boss Request**: Improve type alias extraction across all parsers to capture full range (preventing truncated lines like `export type TranslationKey =`).
+  - Added Task T-18 to `docs/PLAN.md`.
+- **Delegation T-18**: Full-range type alias signature extraction in `typescript.rs`, `rust.rs`, `cpp.rs`.
+  - Subagent: `0fcbe789-c7bb-44f1-83a0-20c6adfe61d9`
+  - Scope: `src/parser/typescript.rs`, `src/parser/rust.rs`, `src/parser/cpp.rs`.
+  - Independent check: `cargo test` (70 tests passed, 0 failed), `cargo clippy` (0 warnings), `cargo fmt --check` (clean).
+  - Verdict: **ACCEPTED**.
