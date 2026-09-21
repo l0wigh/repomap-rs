@@ -1,0 +1,68 @@
+# JOURNAL — repomap-rs
+
+## 2026-09-21 — Initial Framing & Decisions
+- **Decision**: Multi-language support (Rust, Python, JavaScript, TypeScript, Go) via Tree-sitter.
+- **Decision**: Personalized PageRank (PPR) with `--focus` support + global PageRank fallback.
+- **Decision**: Tokenizer via `tiktoken-rs` (`cl100k_base` default).
+- **Decision**: Output formats `aider` (default) and `json`.
+- **Decision**: Git scanning via `ignore` crate.
+- **Milestone**: Drafted `docs/SPEC.md` v1.0. Submitted for boss approval.
+- **Approval**: Boss provided "SPEC APPROVED" (Gate 1 passed). Entering Phase 2: Breakdown & Planning.
+- **Approval**: Boss provided "GO" (Gate 2 passed). Starting Wave 1 execution.
+- **Delegation T-01**: Cargo dependencies and core types in `src/lib.rs`.
+  - Subagent: `eb9b2966-cf32-41f3-811c-ac67087a0f1a`
+  - Scope: `Cargo.toml`, `src/lib.rs`.
+  - Independent check: `cargo check && cargo test` -> Pass (0 errors).
+  - Verdict: **ACCEPTED**.
+- **Delegation T-02**: File discovery scanner with gitignore support in `src/scanner.rs`.
+  - Subagent: `c472b5fe-11a2-4a2d-a056-b3063bf596cc`
+  - Scope: `src/scanner.rs`, `src/lib.rs`.
+  - Independent check: `cargo test scanner::tests` -> Pass (4/4 tests passed).
+  - Verdict: **ACCEPTED**.
+- **Delegation T-03**: Parser trait abstraction & Rust AST parser in `src/parser/mod.rs` and `src/parser/rust.rs`.
+  - Subagent: `f6f5716c-3c38-4933-8ed9-118b122dbcdc`
+  - Scope: `src/parser/mod.rs`, `src/parser/rust.rs`, `src/lib.rs`.
+  - Independent check: `cargo test parser::rust::tests` -> Pass (3/3 tests passed).
+  - Verdict: **ACCEPTED**.
+- **Delegation T-04**: Python AST parser in `src/parser/python.rs`.
+  - Subagent: `2e659c7e-6a58-44d5-bbb4-84ed6f7e939c`
+  - Scope: `src/parser/python.rs`, `src/parser/mod.rs`.
+  - Independent check: `cargo test parser::python::tests` -> Pass (4/4 tests passed).
+  - Verdict: **ACCEPTED**.
+- **Delegation T-05**: JavaScript & TypeScript AST parsers in `src/parser/javascript.rs` and `src/parser/typescript.rs`.
+  - Subagent: `2d362864-7221-4dff-983e-95db8340ae38`
+  - Scope: `src/parser/javascript.rs`, `src/parser/typescript.rs`, `src/parser/mod.rs`.
+  - Independent check: `cargo test parser::javascript::tests && cargo test parser::typescript::tests` -> Pass (7/7 tests passed).
+  - Verdict: **ACCEPTED**.
+- **Delegation T-06**: Go AST parser in `src/parser/go.rs`.
+  - Subagent: `d3519857-3a01-479d-8123-888cac0668f0`
+  - Scope: `src/parser/go.rs`, `src/parser/mod.rs`.
+  - Independent check: `cargo test parser::go::tests` -> Pass (3/3 tests passed).
+  - Verdict: **ACCEPTED**.
+- **Delegation T-07**: Dependency graph & (Personalized) PageRank in `src/graph.rs`.
+  - Subagent: `787b9f04-afc5-413d-80e1-954927b36444`
+  - Scope: `src/graph.rs`, `src/lib.rs`.
+  - Independent check: `cargo test graph::tests` -> Pass (6/6 tests passed).
+  - Verdict: **ACCEPTED**.
+- **Delegation T-08**: Token budgeting & symbol selection engine in `src/budget.rs`.
+  - Subagent: `a05408c8-d758-47c4-82da-9d7ebf200dec`
+  - Scope: `src/budget.rs`, `src/lib.rs`.
+  - Independent check: `cargo test budget::tests` -> Pass (4/4 tests passed).
+  - Verdict: **ACCEPTED**.
+- **Delegation T-09**: Output formatters (Aider & JSON) in `src/formatter/`.
+  - Subagent: `682a6a85-6c8a-455c-b52c-5e127e33d7b8`
+  - Scope: `src/formatter/mod.rs`, `src/formatter/aider.rs`, `src/formatter/json.rs`, `src/lib.rs`.
+  - Independent check: `cargo test formatter::tests` -> Pass (3/3 tests passed).
+  - Verdict: **ACCEPTED**.
+- **Delegation T-10**: CLI binary application entrypoint in `src/main.rs`.
+  - Subagent: `b91e426a-fb29-4082-9110-d89ef2d01e01`
+  - Scope: `src/main.rs`.
+  - Independent check: `cargo run -- --help` and `cargo run -- . --max-tokens 200` -> Pass (0 errors).
+  - Verdict: **ACCEPTED**.
+- **Delegation T-11**: Multi-language fixtures, integration tests, and README.md.
+  - Subagent: `ef60b18a-57ea-4c24-94e6-df716feb2060`
+  - Scope: `tests/fixtures/...`, `tests/integration_test.rs`, `README.md`.
+  - Independent check: `cargo test` (40 passed, 0 failed), `cargo clippy` (0 warnings), `cargo fmt --check` (clean).
+  - Verdict: **ACCEPTED**.
+- **Milestone**: All 11 tasks completed. Definition of Done 100% demonstrated by executed automated tests.
+- **Boss Request**: Documented explicitly in `README.md` that the project was 100% vibe coded (AI agent orchestration + strict TDD). Verified with full test suite passing.
