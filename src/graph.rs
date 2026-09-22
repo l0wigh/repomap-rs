@@ -16,11 +16,19 @@ pub struct RankedFile {
     pub ranked_definitions: Vec<RankedTag>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RankingStrategy {
+    Legacy,
+    Balanced,
+}
+
 #[derive(Debug, Clone)]
 pub struct RepoGraph {
     file_tags: Vec<FileTags>,
-    adj: Vec<Vec<usize>>,
+    adj_legacy: Vec<Vec<usize>>,
+    adj_balanced: Vec<Vec<(usize, f64)>>,
     symbol_ref_counts: HashMap<String, usize>,
+    symbol_def_file_counts: HashMap<String, usize>,
 }
 
 impl RepoGraph {
@@ -52,110 +60,86 @@ impl RepoGraph {
             }
         }
 
-        // 3. For each file i, for each reference string r in file i,
-        // if r is defined in file j (j != i), add a directed edge i -> j
-        let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
+        let symbol_def_file_counts: HashMap<String, usize> = symbol_def_files
+            .iter()
+            .map(|(k, v)| (k.clone(), v.len()))
+            .collect();
+
+        // 3. Build both adjacency variants:
+        // - legacy: unweighted multigraph (previous behavior)
+        // - balanced: weighted graph reducing ambiguous/common symbol dominance
+        let mut adj_legacy: Vec<Vec<usize>> = vec![Vec::new(); n];
+        let mut adj_balanced: Vec<Vec<(usize, f64)>> = vec![Vec::new(); n];
         for (i, ft) in file_tags.iter().enumerate() {
             let mut sorted_refs: Vec<&String> = ft.references.iter().collect();
             sorted_refs.sort();
+            let mut weighted_targets: HashMap<usize, f64> = HashMap::new();
             for r in sorted_refs {
                 if let Some(def_files) = symbol_def_files.get(r) {
+                    let ambiguity_penalty = 1.0 / (def_files.len() as f64);
+                    let ref_count = symbol_ref_counts.get(r).copied().unwrap_or(0) as f64;
+                    let popularity_penalty = 1.0 / (1.0 + ref_count.ln_1p());
+                    let contribution = ambiguity_penalty * popularity_penalty;
                     for &j in def_files {
                         if j != i {
-                            adj[i].push(j);
+                            adj_legacy[i].push(j);
+                            *weighted_targets.entry(j).or_default() += contribution;
                         }
                     }
                 }
             }
-            adj[i].sort();
+            adj_legacy[i].sort();
+
+            let mut weighted_vec: Vec<(usize, f64)> = weighted_targets.into_iter().collect();
+            weighted_vec.sort_by_key(|(target, _)| *target);
+            adj_balanced[i] = weighted_vec;
         }
 
         Self {
             file_tags: file_tags.to_vec(),
-            adj,
+            adj_legacy,
+            adj_balanced,
             symbol_ref_counts,
+            symbol_def_file_counts,
         }
     }
 
-    /// Compute PageRank or Personalized PageRank (if focus files are specified).
+    /// Compute legacy PageRank or Personalized PageRank (if focus files are specified).
     pub fn compute_pagerank(&self, focus: &[PathBuf]) -> Vec<RankedFile> {
-        let n = self.file_tags.len();
-        if n == 0 {
+        self.compute_ranked_files(focus, RankingStrategy::Legacy)
+    }
+
+    /// Compute ranking with a strategy selector.
+    pub fn compute_ranked_files(
+        &self,
+        focus: &[PathBuf],
+        ranking_strategy: RankingStrategy,
+    ) -> Vec<RankedFile> {
+        let file_scores = self.compute_file_scores(focus, ranking_strategy);
+        if file_scores.is_empty() {
             return Vec::new();
         }
 
-        // 1. Determine teleport vector v
-        let focus_indices: Vec<usize> = (0..n)
-            .filter(|&i| is_in_focus(&self.file_tags[i].path, focus))
-            .collect();
-
-        let v = if !focus_indices.is_empty() {
-            let mut vec = vec![0.0; n];
-            let mass = 1.0 / (focus_indices.len() as f64);
-            for &idx in &focus_indices {
-                vec[idx] = mass;
-            }
-            vec
-        } else {
-            vec![1.0 / (n as f64); n]
-        };
-
-        // 2. Power iteration:
-        // d = 0.85, max_iterations = 100, tolerance = 1e-6
-        let damping = 0.85;
-        let max_iterations = 100;
-        let tolerance = 1e-6;
-
-        let mut p = v.clone();
-
-        for _ in 0..max_iterations {
-            // Compute dangling nodes sum and transition matrix multiplication: M * p
-            let mut dangling_sum = 0.0;
-            let mut m_p = vec![0.0; n];
-            for (edges, &p_i) in self.adj.iter().zip(p.iter()) {
-                let out_degree = edges.len();
-                if out_degree == 0 {
-                    dangling_sum += p_i;
-                } else {
-                    let share = p_i / (out_degree as f64);
-                    for &target in edges {
-                        m_p[target] += share;
-                    }
-                }
-            }
-
-            // p^(t+1) = (1 - d) * v + d * (M * p + dangling_sum * v)
-            let p_next: Vec<f64> = v
-                .iter()
-                .zip(m_p.iter())
-                .map(|(&v_i, &m_p_i)| {
-                    (1.0 - damping) * v_i + damping * (m_p_i + dangling_sum * v_i)
-                })
-                .collect();
-
-            // L1 norm convergence check
-            let diff: f64 = p
-                .iter()
-                .zip(p_next.iter())
-                .map(|(a, b)| (a - b).abs())
-                .sum();
-
-            p = p_next;
-
-            if diff < tolerance {
-                break;
-            }
-        }
-
-        // 3. Score definitions within each file and construct RankedFiles
+        let n = self.file_tags.len();
         let mut ranked_files = Vec::with_capacity(n);
         for (i, ft) in self.file_tags.iter().enumerate() {
-            let file_score = p[i];
+            let file_score = file_scores[i];
             let mut ranked_definitions = Vec::with_capacity(ft.definitions.len());
 
             for def in &ft.definitions {
-                let ref_count = self.symbol_ref_counts.get(&def.name).copied().unwrap_or(0);
-                let tag_score = file_score * (1.0 + (ref_count as f64));
+                let ref_count = self.symbol_ref_counts.get(&def.name).copied().unwrap_or(0) as f64;
+                let tag_score = match ranking_strategy {
+                    RankingStrategy::Legacy => file_score * (1.0 + ref_count),
+                    RankingStrategy::Balanced => {
+                        let def_file_count = self
+                            .symbol_def_file_counts
+                            .get(&def.name)
+                            .copied()
+                            .unwrap_or(1) as f64;
+                        let rarity_signal = ref_count.ln_1p();
+                        file_score * (1.0 + (rarity_signal / def_file_count))
+                    }
+                };
                 ranked_definitions.push(RankedTag {
                     tag: def.clone(),
                     score: tag_score,
@@ -178,8 +162,6 @@ impl RepoGraph {
             });
         }
 
-        // 4. Sort RankedFiles descending by score.
-        // If scores are equal, sort by path ascending for determinism.
         ranked_files.sort_by(|a, b| {
             b.score
                 .partial_cmp(&a.score)
@@ -188,6 +170,100 @@ impl RepoGraph {
         });
 
         ranked_files
+    }
+
+    fn compute_file_scores(
+        &self,
+        focus: &[PathBuf],
+        ranking_strategy: RankingStrategy,
+    ) -> Vec<f64> {
+        let n = self.file_tags.len();
+        if n == 0 {
+            return Vec::new();
+        }
+
+        // 1. Determine teleport vector v
+        let focus_indices: Vec<usize> = (0..n)
+            .filter(|&i| is_in_focus(&self.file_tags[i].path, focus))
+            .collect();
+
+        let v = if !focus_indices.is_empty() {
+            let mut vec = vec![0.0; n];
+            let mass = 1.0 / (focus_indices.len() as f64);
+            for &idx in &focus_indices {
+                vec[idx] = mass;
+            }
+            vec
+        } else {
+            vec![1.0 / (n as f64); n]
+        };
+
+        let damping = 0.85;
+        let max_iterations = 100;
+        let tolerance = 1e-6;
+
+        let mut p = v.clone();
+
+        for _ in 0..max_iterations {
+            let mut dangling_sum = 0.0;
+            let mut m_p = vec![0.0; n];
+
+            match ranking_strategy {
+                RankingStrategy::Legacy => {
+                    for (edges, &p_i) in self.adj_legacy.iter().zip(p.iter()) {
+                        let out_degree = edges.len();
+                        if out_degree == 0 {
+                            dangling_sum += p_i;
+                        } else {
+                            let share = p_i / (out_degree as f64);
+                            for &target in edges {
+                                m_p[target] += share;
+                            }
+                        }
+                    }
+                }
+                RankingStrategy::Balanced => {
+                    for (edges, &p_i) in self.adj_balanced.iter().zip(p.iter()) {
+                        if edges.is_empty() {
+                            dangling_sum += p_i;
+                            continue;
+                        }
+
+                        let total_weight: f64 = edges.iter().map(|(_, weight)| *weight).sum();
+                        if total_weight <= f64::EPSILON {
+                            dangling_sum += p_i;
+                            continue;
+                        }
+
+                        for &(target, weight) in edges {
+                            m_p[target] += p_i * (weight / total_weight);
+                        }
+                    }
+                }
+            }
+
+            let p_next: Vec<f64> = v
+                .iter()
+                .zip(m_p.iter())
+                .map(|(&v_i, &m_p_i)| {
+                    (1.0 - damping) * v_i + damping * (m_p_i + dangling_sum * v_i)
+                })
+                .collect();
+
+            let diff: f64 = p
+                .iter()
+                .zip(p_next.iter())
+                .map(|(a, b)| (a - b).abs())
+                .sum();
+
+            p = p_next;
+
+            if diff < tolerance {
+                break;
+            }
+        }
+
+        p
     }
 }
 
@@ -461,5 +537,111 @@ mod tests {
         // Broken by line ascending: TieFirst (line 10) then TieSecond (line 30)
         assert_eq!(defs_file.ranked_definitions[1].tag.name, "TieFirst");
         assert_eq!(defs_file.ranked_definitions[2].tag.name, "TieSecond");
+    }
+
+    #[test]
+    fn test_graph_legacy_strategy_matches_existing_behavior() {
+        let mut b_refs = HashSet::new();
+        b_refs.insert("Foo".to_string());
+
+        let file_a = FileTags {
+            path: PathBuf::from("src/a.rs"),
+            definitions: vec![make_tag("Foo", 1)],
+            references: HashSet::new(),
+        };
+
+        let file_b = FileTags {
+            path: PathBuf::from("src/b.rs"),
+            definitions: Vec::new(),
+            references: b_refs,
+        };
+
+        let graph = RepoGraph::from_file_tags(&[file_a, file_b]);
+        let legacy = graph.compute_ranked_files(&[], RankingStrategy::Legacy);
+        let existing = graph.compute_pagerank(&[]);
+
+        assert_eq!(legacy.len(), existing.len());
+        for (a, b) in legacy.iter().zip(existing.iter()) {
+            assert_eq!(a.path, b.path);
+            assert_eq!(a.score.to_bits(), b.score.to_bits());
+            assert_eq!(a.ranked_definitions.len(), b.ranked_definitions.len());
+        }
+    }
+
+    #[test]
+    fn test_graph_balanced_strategy_boosts_rare_signal_relative_to_common() {
+        let file_common = FileTags {
+            path: PathBuf::from("src/common.rs"),
+            definitions: vec![make_tag("Common", 1)],
+            references: HashSet::new(),
+        };
+        let file_rare = FileTags {
+            path: PathBuf::from("src/rare.rs"),
+            definitions: vec![make_tag("Rare", 1)],
+            references: HashSet::new(),
+        };
+
+        let mut refs_1 = HashSet::new();
+        refs_1.insert("Common".to_string());
+        refs_1.insert("Rare".to_string());
+        let file_ref_1 = FileTags {
+            path: PathBuf::from("src/ref1.rs"),
+            definitions: Vec::new(),
+            references: refs_1,
+        };
+
+        let mut refs_2 = HashSet::new();
+        refs_2.insert("Common".to_string());
+        let file_ref_2 = FileTags {
+            path: PathBuf::from("src/ref2.rs"),
+            definitions: Vec::new(),
+            references: refs_2,
+        };
+
+        let mut refs_3 = HashSet::new();
+        refs_3.insert("Common".to_string());
+        let file_ref_3 = FileTags {
+            path: PathBuf::from("src/ref3.rs"),
+            definitions: Vec::new(),
+            references: refs_3,
+        };
+
+        let graph = RepoGraph::from_file_tags(&[
+            file_common,
+            file_rare,
+            file_ref_1,
+            file_ref_2,
+            file_ref_3,
+        ]);
+        let legacy = graph.compute_ranked_files(&[], RankingStrategy::Legacy);
+        let balanced = graph.compute_ranked_files(&[], RankingStrategy::Balanced);
+
+        let legacy_common = legacy
+            .iter()
+            .find(|f| f.path == Path::new("src/common.rs"))
+            .unwrap()
+            .score;
+        let legacy_rare = legacy
+            .iter()
+            .find(|f| f.path == Path::new("src/rare.rs"))
+            .unwrap()
+            .score;
+        let balanced_common = balanced
+            .iter()
+            .find(|f| f.path == Path::new("src/common.rs"))
+            .unwrap()
+            .score;
+        let balanced_rare = balanced
+            .iter()
+            .find(|f| f.path == Path::new("src/rare.rs"))
+            .unwrap()
+            .score;
+
+        let legacy_ratio = legacy_rare / legacy_common;
+        let balanced_ratio = balanced_rare / balanced_common;
+        assert!(
+            balanced_ratio > legacy_ratio,
+            "Balanced ratio ({balanced_ratio}) should be greater than legacy ratio ({legacy_ratio})"
+        );
     }
 }

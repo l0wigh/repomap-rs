@@ -1,7 +1,8 @@
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use repomap_rs::formatter::OutputFormat;
-use repomap_rs::graph::RepoGraph;
+use repomap_rs::graph::{RankingStrategy, RepoGraph};
 use repomap_rs::{budget, formatter, parser, scanner};
 
 fn get_fixture_root() -> PathBuf {
@@ -24,6 +25,19 @@ fn load_fixture_repo(root: &Path) -> (Vec<PathBuf>, Vec<repomap_rs::FileTags>) {
         file_tags.push(ft);
     }
     (files, file_tags)
+}
+
+fn run_cli(args: &[&str]) -> String {
+    let output = Command::new(env!("CARGO_BIN_EXE_repomap-rs"))
+        .args(args)
+        .output()
+        .expect("Failed to execute repomap CLI");
+    assert!(
+        output.status.success(),
+        "CLI should succeed, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8(output.stdout).expect("CLI output should be valid UTF-8")
 }
 
 #[test]
@@ -459,4 +473,76 @@ fn test_e2e_determinism() {
     assert_eq!(plan1, plan2, "Budget plans must be identical");
     assert_eq!(aider1, aider2, "Aider text output must be identical");
     assert_eq!(json1, json2, "JSON output must be identical");
+}
+
+#[test]
+fn test_e2e_cli_ranking_selection_default_and_legacy() {
+    let fixture_root = get_fixture_root();
+    let fixture_root_str = fixture_root.to_string_lossy().to_string();
+
+    let default_json_text = run_cli(&[
+        fixture_root_str.as_str(),
+        "--format",
+        "json",
+        "--max-tokens",
+        "500",
+    ]);
+    let balanced_json_text = run_cli(&[
+        fixture_root_str.as_str(),
+        "--format",
+        "json",
+        "--max-tokens",
+        "500",
+        "--ranking",
+        "balanced",
+    ]);
+    let legacy_json_text = run_cli(&[
+        fixture_root_str.as_str(),
+        "--format",
+        "json",
+        "--max-tokens",
+        "500",
+        "--ranking",
+        "legacy",
+    ]);
+
+    let default_json: serde_json::Value =
+        serde_json::from_str(&default_json_text).expect("default output should be valid JSON");
+    let balanced_json: serde_json::Value =
+        serde_json::from_str(&balanced_json_text).expect("balanced output should be valid JSON");
+    let legacy_json: serde_json::Value =
+        serde_json::from_str(&legacy_json_text).expect("legacy output should be valid JSON");
+
+    assert_eq!(
+        default_json, balanced_json,
+        "Default CLI ranking should match explicit balanced ranking"
+    );
+
+    let (_files, file_tags) = load_fixture_repo(&fixture_root);
+    let graph = RepoGraph::from_file_tags(&file_tags);
+    let ranked_balanced = graph.compute_ranked_files(&[], RankingStrategy::Balanced);
+    let ranked_legacy = graph.compute_ranked_files(&[], RankingStrategy::Legacy);
+    let plan_balanced =
+        budget::fit_to_budget(&ranked_balanced, 500, "cl100k_base").expect("balanced plan");
+    let plan_legacy =
+        budget::fit_to_budget(&ranked_legacy, 500, "cl100k_base").expect("legacy plan");
+
+    let expected_balanced = formatter::format_repomap(&plan_balanced, OutputFormat::Json)
+        .expect("format balanced json");
+    let expected_legacy =
+        formatter::format_repomap(&plan_legacy, OutputFormat::Json).expect("format legacy json");
+
+    let expected_balanced_json: serde_json::Value =
+        serde_json::from_str(&expected_balanced).expect("expected balanced JSON");
+    let expected_legacy_json: serde_json::Value =
+        serde_json::from_str(&expected_legacy).expect("expected legacy JSON");
+
+    assert_eq!(
+        default_json, expected_balanced_json,
+        "CLI default output should match library balanced ranking output"
+    );
+    assert_eq!(
+        legacy_json, expected_legacy_json,
+        "CLI legacy output should match library legacy ranking output"
+    );
 }

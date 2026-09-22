@@ -63,6 +63,7 @@ Options:
       --max-tokens <N>     Maximum token budget [default: 1024]
       --format <FORMAT>    Output format [default: aider] [possible values: aider, json]
       --encoding <ENCODING> Tokenizer encoding [default: cl100k_base] [possible values: cl100k_base, o200k_base]
+      --ranking <RANKING>  Ranking strategy [default: balanced] [possible values: legacy, balanced]
   -h, --help               Print help
 ```
 
@@ -99,6 +100,11 @@ repomap . --focus src/auth.py
 #### 3. Output as JSON under a custom token budget
 ```bash
 repomap . --max-tokens 500 --format json --encoding o200k_base
+```
+
+#### 4. Keep the legacy ranking behavior
+```bash
+repomap . --ranking legacy
 ```
 
 Sample JSON output:
@@ -201,4 +207,3 @@ cargo fmt --check
 - **Agentic Orchestration**: System architecture, task decomposition, and code generation were autonomously executed by AI agents in pair-programming collaboration.
 - **Strict Test-Driven Development (TDD)**: Every component and feature was built against comprehensive unit and integration test suites, ensuring correctness, determinism, and robust AST error handling.
 - **Modular Contracts & Verification**: Zero human manual code writing—all implementation, refactoring, and documentation were delivered by agents guided by formal specifications, strict modular contracts, and automated validation (`cargo test`, `cargo clippy`, `cargo fmt`).
-
